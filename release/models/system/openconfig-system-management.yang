@@ -10,6 +10,7 @@ module openconfig-system-management {
   // import some basic types
   import openconfig-extensions { prefix oc-ext; }
   import openconfig-inet-types { prefix oc-inet; }
+  import openconfig-system-terminal { prefix oc-sys-term; }
 
   // meta
   organization "OpenConfig working group";
@@ -48,6 +49,27 @@ module openconfig-system-management {
   oc-ext:origin "openconfig";
 
   // identity statements
+
+  identity NETCONF_VERSION {
+    description
+      "Base identity for NETCONF protocol versions";
+  }
+
+  identity NETCONF_VERSION_1_0 {
+    base NETCONF_VERSION;
+    description
+      "NETCONF 1.0";
+    reference
+      "RFC4741: NETCONF Configuration Protocol";
+  }
+
+  identity NETCONF_VERSION_1_1 {
+    base NETCONF_VERSION;
+    description
+      "NETCONF 1.1";
+    reference
+      "RFC6241: Network Configuration Protocol (NETCONF)";
+  }
 
   // typedef statements
 
@@ -89,8 +111,8 @@ module openconfig-system-management {
       default false;
       description
         "Enables gRPC METADATA authentication. See
-	 https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-authentication.md#credentials-and-authentication
-	 for more info.";
+	      https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-authentication.md#credentials-and-authentication
+	      for more info.";
     }
 
     leaf-list listen-addresses {
@@ -114,9 +136,9 @@ module openconfig-system-management {
     description
       "Top-level grouping for system gRPC server data";
 
-      container grpc-server {
-        description
-          "Top-level container for the gRPC server";
+    container grpc-server {
+      description
+        "Top-level container for the gRPC server";
 
       container config {
         description
@@ -133,6 +155,180 @@ module openconfig-system-management {
 
         uses system-grpc-server-config;
       }
+    }
+  }
+
+  grouping system-netconf-server-transport-common-config {
+    description
+      "Common configuration data for NETCONF transports";
+
+    leaf enable {
+      type boolean;
+      default false;
+      description
+        "Enables the NETCONF server per transport.  The
+        NETCONF server is disabled by default across all
+        supported transports.";
+    }
+
+    leaf port {
+      type oc-inet:port-number;
+      description
+        "TCP port on which the NETCONF server should listen.
+        The default for SSHv2 transport is 830 while the
+        default for TLS transport is 6513.";
+    }
+
+    leaf-list listen-addresses {
+      type union {
+        type oc-inet:ip-address;
+        type enumeration {
+          enum ANY {
+            description
+             "The NETCONF server should listen on any address
+              bound to an interface on the system.";
+          }
+        }
+      }
+      description
+        "The IP addresses that the NETCONF server should listen
+        on. This may be an IPv4 or an IPv6 address";
+    }
+  }
+
+  grouping system-netconf-server-tls-config {
+    description
+      "Configuration data for NETCONF over TLS";
+
+    leaf certificate-id {
+      type string;
+      description
+        "The certificate ID to be used for authentication";
+    }
+  }
+
+  grouping system-netconf-server-transport-config {
+    description
+      "Configuration data for NETCONF transport protocols";
+
+    container transport {
+      description
+        "Top-level container for NETCONF transport protocols";
+
+      container ssh {
+        description
+          "Top-level container for NETCONF over SSHv2 data";
+
+        container config {
+          description
+            "Configuration data for NETCONF over SSHv2";
+
+          uses system-netconf-server-transport-common-config {
+            refine port {
+              default 830;
+            }
+          }
+
+          uses oc-sys-term:system-terminal-common-config;
+        }
+        container state {
+          config false;
+
+          description
+            "Operational state data for NETCONF over SSHv2";
+
+          uses system-netconf-server-transport-common-config {
+            refine port {
+              default 830;
+            }
+          }
+
+          uses oc-sys-term:system-terminal-common-config;
+        }
+      }
+      container tls {
+        description
+          "Top-level container for NETCONF over TLS data";
+
+        container config {
+          description
+            "Configuration data for NETCONF over TLS";
+
+          uses system-netconf-server-transport-common-config {
+            refine port {
+              default 6513;
+            }
+          }
+
+          uses system-netconf-server-tls-config;
+          uses oc-sys-term:system-terminal-common-config;
+        }
+        container state {
+          config false;
+
+          description
+            "Operational state data for NETCONF over TLS";
+
+          uses system-netconf-server-transport-common-config {
+            refine port {
+              default 6513;
+            }
+          }
+
+          uses system-netconf-server-tls-config;
+          uses oc-sys-term:system-terminal-common-config;
+        }
+      }
+    }
+  }
+
+  grouping system-netconf-server-config {
+    description
+      "Configuration data for the NETCONF server";
+
+    leaf enable {
+      type boolean;
+      default false;
+      description
+        "Enables the NETCONF server agent. The NETCONF server is
+        disabled by default";
+    }
+
+    leaf-list version {
+      type identityref {
+        base NETCONF_VERSION;
+      }
+      description
+        "A list of NETCONF protocol versions that the server
+        will understand and advertise";
+    }
+  }
+
+  grouping system-netconf-server-top {
+    description
+      "Top-level grouping for system NETCONF server data";
+
+    container netconf-server {
+      description
+        "Top-level container for the NETCONF server";
+
+      container config {
+        description
+          "Configuration data for the system NETCONF server";
+
+        uses system-netconf-server-config;
+      }
+
+      container state {
+        config false;
+
+        description
+          "Operational state data for the system NETCONF server";
+
+        uses system-netconf-server-config;
+      }
+
+      uses system-netconf-server-transport-config;
     }
   }
 
